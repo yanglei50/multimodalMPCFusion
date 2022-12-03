@@ -1,6 +1,12 @@
 # Auto drive system based on multimodal input fusion
 This project is a self-learning code, which aims to convert, record and display the real-time data of automobile driving in OpenDriver format. At the same time, the corresponding annotation tools are provided. At the same time, test and verify the combination of the basic Model Passive Control method and RL method.
+![](doc/scence13.png)
 
+![](doc/30bbbb.png)
+
+![](doc/30.png)
+
+![](doc/28.png)
 ## Dataset Description
 The current dataset is based on private company data.
 
