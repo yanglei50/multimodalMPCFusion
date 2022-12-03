@@ -33,12 +33,12 @@ linestyle_tuple = [
     ('densely dashdotdotted', (0, (3, 1, 1, 1, 1, 1)))]
 
 
-def prepare_data(isGenerateImage=1, isRecordInf=1):
+def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
     '''
     读取文件夹下所有文件的名字并把他们用列表存起来
     '''
-    path = "D:/DataContest/data/0805 (有图数据)/"
-
+    # path = "D:/DataContest/data/0802 (无图数据1)/0802/"
+    path='/home/lawrence/Documents/Bigcontest/data/0802(无图数据1)/0802/'
     # file_image = 'F:\\car\\object\\image4\\0805 (1)\\0805\\image'
     datanames = os.listdir(path)
     list = []
@@ -46,6 +46,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
         list.append(i)
     already_draw_one = 0
     for b in list:
+        row_total=0
         (filename, extension) = os.path.splitext(b)
         file = path + b
         if not os.access(file, os.X_OK):
@@ -60,8 +61,10 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
         filepath, tmpfilename = os.path.split(b)
         shotname, extension = os.path.splitext(tmpfilename)
         if isRecordInf == 1:
-            rec_filename = 'D:/DataContest/data/image2/' + shotname + '/' + 'carinfo.cvs'
-            log_file = open(rec_filename, 'a+', encoding='utf-8', newline='')
+            rec_filename = '/home/lawrence/Documents/Bigcontest/data/image2/' + shotname + '/'
+            if not os.path.exists(rec_filename):
+                os.mkdir(rec_filename)
+            log_file = open(rec_filename+ '/' + 'carinfo.cvs', 'a+', encoding='utf-8', newline='')
             log_csv_writer = csv.writer(log_file)
             log_csv_writer.writerow(rec_header)
         with open(file) as f:
@@ -108,7 +111,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
                 sas_steering_angle_stp_motion_his.append(esp_long_accel_stp_motion)
 
                 plt.subplot(235)
-                plt.title('自车运动')
+                plt.title('Self Vec Motion') #自车运动
                 X1N = np.array(timeindex)
                 X2N = np.array(esp_yaw_rate_stp_motion_his)
                 plt.plot(timeindex, esp_yaw_rate_stp_motion_his, linestyle='solid', color='g',
@@ -118,7 +121,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
                 plt.plot(timeindex, esp_long_accel_stp_motion_his, 'yo:', linewidth=1.0, label='纵向加速度')
                 plt.plot(timeindex, sas_steering_angle_stp_motion_his, 'mo:', linewidth=1.0,
                          label='方向盘转向角度[degree]')
-                plt.legend()
+                #plt.legend()
                 # 3.车道线
                 Lane_line_list = first0[6]
                 Lane_line_list = ast.literal_eval(Lane_line_list)
@@ -144,29 +147,32 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
 
                 # 6.图片数据
                 plt.subplot(231)
-                plt.title('图片数据')
-                imageData_image = first0[16]
-                Image_Data(imageData_image ,'D:/DataContest/data/image2/' + filename + '/scence' + str(a) + '.png')
+                plt.title('Image Data')#图片数据
+                BacauseOfThereIsImage=0
+                if not NoImageFileFormat==1:
+                    BacauseOfThereIsImage
+                    imageData_image = first0[16]
+                    Image_Data(imageData_image ,'') #'D:/DataContest/data/image2/' + filename + '/scence' + str(a) + '.png'
 
                 # 7.定位
-                timestamp_of_location = first0[17]  # 时间戳
-                heading_of_location = first0[18]  # 航向角:[deg]
+                timestamp_of_location = first0[16+BacauseOfThereIsImage]  # 时间戳
+                heading_of_location = first0[17+BacauseOfThereIsImage]  # 航向角:[deg]
                 plt.subplot(236)
-                plt.title('航向角+车辆经纬度')
+                plt.title('latitude_+longitude')#航向角+车辆经纬度
                 plt.plot(timestamp_of_location, heading_of_location, 'bo:')
-                latitude_of_location = first0[19]  # 车辆定位纬度
-                longitude_of_location = first0[20]  # 车辆定位经度
-                altitude_of_location = first0[21]  # 车辆定位高度
-                plt.plot(timestamp_of_location, latitude_of_location, 'bo:')
-                plt.plot(timestamp_of_location, longitude_of_location, 'ro:')
-                plt.plot(timestamp_of_location, altitude_of_location, 'go:')
+                latitude_of_location = first0[18+BacauseOfThereIsImage]  # 车辆定位纬度
+                longitude_of_location = first0[19+BacauseOfThereIsImage]  # 车辆定位经度
+                altitude_of_location = first0[20+BacauseOfThereIsImage]  # 车辆定位高度
+                plt.plot(timestamp_of_location, latitude_of_location, 'bo:',label='latitude_of_location')
+                plt.plot(timestamp_of_location, longitude_of_location, 'ro:',label='longitude_of_location')
+                plt.plot(timestamp_of_location, altitude_of_location, 'go:',label='altitude_of_location')
 
                 # 8.驾驶员行为数据
-                bcmlight = first0[22]  # 转向灯开关状态信号（未使用：0，左转：1，右转：2，未知：3）
+                bcmlight = first0[21+BacauseOfThereIsImage]  # 转向灯开关状态信号（未使用：0，左转：1，右转：2，未知：3）
                 # 9.可行驶区域点集
                 plt.subplot(232)
-                plt.title('可行驶区域点集')
-                Free_Space_Desc(first0)
+                plt.title('Freespace')#可行驶区域点集
+                Free_Space_Desc(first0,BacauseOfThereIsImage)
 
                 longitudinal = 0  # 纵向
                 lateral = 0  # 横向
@@ -177,7 +183,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
                 # 目标检测 objs/fus_objs
                 # 遍历object数组
                 plt.subplot(233)
-                plt.title('目标数据')
+                plt.title('POI')#目标数据
                 plt.xlim(-40, 40)
                 # 设置y轴的刻度范围
                 plt.ylim(-40, 40)
@@ -186,7 +192,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
                 Draw_Lane_Line(Lane_line_list)
                 # 静态地图
                 plt.subplot(234)
-                plt.title('静态地图')
+                plt.title('Statics Map')#静态地图
                 plt.xlim(-500, 50)
                 # 设置y轴的刻度范围
                 plt.ylim(-500, 500)
@@ -202,6 +208,8 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
                 if isGenerateImage == 1:
                     print("path+'/image2/'+filename):" + path + '/image2/' + filename + '\\' +
                           str(a) + '.png')
+                    if not os.path.exists(path + '/image2/'):
+                        os.mkdir(path + 'image2/')
                     if not os.path.exists(path + '/image2/' + filename):
                         os.mkdir(path + 'image2/' + filename)
                     plt.savefig(path + '/image2/' + filename + '\\' +
@@ -216,9 +224,9 @@ def prepare_data(isGenerateImage=1, isRecordInf=1):
         if isRecordInf == 1:
             log_file.close()
         print(
-            'D:\\Tools\\ffmpeg\\bin\\ffmpeg.exe  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
+            'fmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
         os.system(
-            'D:\\Tools\\ffmpeg\\bin\\ffmpeg.exe  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
+            'ffmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
     return
 
 
@@ -308,11 +316,11 @@ def Image_Data(imagedata_image, img_filename=''):
 
 
 # 可行驶区域
-def Free_Space_Desc(first0):
+def Free_Space_Desc(first0,BacauseOfThereIsImage):
     plt.xlim(-40, 40)
     # 设置y轴的刻度范围
     plt.ylim(-40, 40)
-    freespace_fc_list = first0[23]
+    freespace_fc_list = first0[22+BacauseOfThereIsImage]
     freespace_fc_list = ast.literal_eval(freespace_fc_list)
     plot_circle((0, 0), r=2, colorstr='darkred')
     for i in range(0, freespace_fc_list.__len__()):
@@ -623,17 +631,17 @@ if __name__ == '__main__':
     declare_a_global_variable()
     plt.figure(figsize=(30, 20), dpi=600)  # 字符型linestyle使用方法
 
-    plt.xlim(-40, 40)
-    # 设置y轴的刻度范围
-    plt.ylim(-40, 40)
+    # plt.xlim(-40, 40)
+    # # 设置y轴的刻度范围
+    # plt.ylim(-40, 40)
 
-    plt.rcParams['font.sans-serif'] = ["SimHei"]
+    #plt.rcParams['font.sans-serif'] = ["SimHei"]
     plt.rcParams['axes.unicode_minus'] = False
     # plt.rcParams['figure.figsize'] = (8.0, 6.0)
     # plt.rcParams['figure.dpi'] = 300 #分辨率
     # splt.rcParams['savefig.dpi'] = 150  # 图片像素
 
-    prepare_data(0, 1)
+    prepare_data(1, 1,1)
     plt.legend()
 
     plt.show()
