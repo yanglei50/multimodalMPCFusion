@@ -38,7 +38,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
     读取文件夹下所有文件的名字并把他们用列表存起来
     '''
     path = "D:/DataContest/data/0802 (无图数据1)/0802/"
-    # path='/home/lawrence/Documents/Bigcontest/data/0802(无图数据1)/0802/'
+    path='/home/lawrence/Documents/Bigcontest/data/0802(无图数据1)/0802/'
     # file_image = 'F:\\car\\object\\image4\\0805 (1)\\0805\\image'
     datanames = os.listdir(path)
     list = []
@@ -207,13 +207,13 @@ def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
                                              esp_long_accel_stp_motion])
 
                 if isGenerateImage == 1:
-                    print("path+'/image2/'+filename):" + path + '/image2/' + filename + '\\' +
+                    print("path+'/image2/'+filename):" + path + '/image2/' + filename + '/' +
                           str(a) + '.png')
                     if not os.path.exists(path + '/image2/'):
                         os.mkdir(path + 'image2/')
                     if not os.path.exists(path + '/image2/' + filename):
                         os.mkdir(path + 'image2/' + filename)
-                    plt.savefig(path + '/image2/' + filename + '\\' +
+                    plt.savefig(path + '/image2/' + filename + '/' +
                                 str(a) + '.png', bbox_inches="tight")
                 plt.clf()
                 plt.xlim(-40, 40)
@@ -225,7 +225,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
         if isRecordInf == 1:
             log_file.close()
         print(
-            'fmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
+            'ffmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
         os.system(
             'ffmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
     return
