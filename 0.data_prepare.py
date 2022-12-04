@@ -37,8 +37,8 @@ def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
     '''
     读取文件夹下所有文件的名字并把他们用列表存起来
     '''
-    # path = "D:/DataContest/data/0802 (无图数据1)/0802/"
-    path='/home/lawrence/Documents/Bigcontest/data/0802(无图数据1)/0802/'
+    path = "D:/DataContest/data/0802 (无图数据1)/0802/"
+    # path='/home/lawrence/Documents/Bigcontest/data/0802(无图数据1)/0802/'
     # file_image = 'F:\\car\\object\\image4\\0805 (1)\\0805\\image'
     datanames = os.listdir(path)
     list = []
@@ -144,6 +144,13 @@ def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
                 # 5.静态地图
                 link_list_hdmap = first0[15]
                 link_list_hdmap = ast.literal_eval(link_list_hdmap)
+                # 静态地图
+                plt.subplot(234)
+                plt.title('Statics Map')#静态地图
+                plt.xlim(-500, 50)
+                # 设置y轴的刻度范围
+                plt.ylim(-500, 500)
+                Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap)
 
                 # 6.图片数据
                 plt.subplot(231)
@@ -190,13 +197,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
                 Draw_Dection_POI(object_detection_list)
                 # 把所有车道线搞出来
                 Draw_Lane_Line(Lane_line_list)
-                # 静态地图
-                plt.subplot(234)
-                plt.title('Statics Map')#静态地图
-                plt.xlim(-500, 50)
-                # 设置y轴的刻度范围
-                plt.ylim(-500, 500)
-                link_list_hdmap_static_map(x0, y0, link_list_hdmap)
+
 
                 # 保存到文件中去
                 if isRecordInf == 1:
@@ -230,7 +231,7 @@ def prepare_data(isGenerateImage=1, isRecordInf=1,NoImageFileFormat=1):
     return
 
 
-def link_list_hdmap_static_map(x0, y0, link_list_hdmap):
+def Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap):
     for i in range(0, link_list_hdmap.__len__()):
         link_id = link_list_hdmap['links_' + str(i)]['link_id']
         link_length = link_list_hdmap['links_' + str(i)]['link_length']  # 路段的长度:[m]
@@ -454,6 +455,13 @@ def Draw_Dection_POI(object_detection_list):
             else:
                 logging.debug("未被锁上的车位锁")
                 plot_circle((objs_lateral, objs_longitudinal), r=1)
+            cut_status = object_detection_list['objs_' + str(i)]['cut_status'] #Cut-in状态
+            status = object_detection_list['objs_' + str(i)]['status']  # 目标运动状态
+            longitudinal_relative_velocity = object_detection_list['objs_' + str(i)]['longitudinal_relative_velocity']  # 纵向相对速度
+            lateral_relative_velocity = object_detection_list['objs_' + str(i)][
+                'lateral_relative_velocity']  # 横向相对速度
+            obj_refer_points = object_detection_list['objs_' + str(i)][
+                'obj_refer_points']  # 目标测量参考点：下一级为纵向距离、横向距离
             # plt.Rectangle(
             #     (objs_lateral, objs_longitudinal), objs_length, objs_width, fill=True, edgecolor='red',
             #     linewidth=1)
