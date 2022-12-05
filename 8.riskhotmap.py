@@ -2,17 +2,18 @@
 
 # 数据路径
 import ast
-import base64
 import csv
+import logging
 import math
 import os
-import logging
-import cv2
+import matplotlib
 import matplotlib.pyplot as plt
+import cv2
 import numpy as np
-from pylab import mpl
+import matplotlib.cm as cm
+from matplotlib.colors import LogNorm
 import coordinateconvert
-
+import seaborn as sns
 csv.field_size_limit(500 * 1024 * 1024)
 
 object_classification_class = ['未知目标', '汽车', '卡车', '摩托车', '行人', '自行车', '动物', '巴士', '其他', '购物车',
@@ -33,25 +34,24 @@ linestyle_tuple = [
     ('densely dashdotdotted', (0, (3, 1, 1, 1, 1, 1)))]
 
 
-def prepare_data(isSaveGenerateImage=1, isRecordInf=1, NoImageFileFormat=1, is_generated_video=1):
-    '''
-    读取文件夹下所有文件的名字并把他们用列表存起来
-    '''
+def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format=1, is_generated_video=1):
+    # 读取文件夹下所有文件的名字并把他们用列表存起来
     # path = "D:/DataContest/data/0802 (无图数据1)/0802/"
     path = 'F:/DataContest/data/0805 (有图数据)/'
     # path='/home/lawrence/Documents/Bigcontest/data/0802(无图数据1)/0802/'
     # file_image = 'F:\\car\\object\\image4\\0805 (1)\\0805\\image'
     datanames = os.listdir(path)
-    list = []
+    file_list = []
+    risk_map = []
     for i in datanames:
-        list.append(i)
+        file_list.append(i)
     already_draw_one = 0
-    for b in list:
+    for b in file_list:
         row_total = 0
         (filename, extension) = os.path.splitext(b)
         file = path + b
         if not os.access(file, os.X_OK):
-            continue;
+            continue
         if not b == '1659666617.49_1659666654.17.csv':
             continue
         try:
@@ -68,7 +68,7 @@ def prepare_data(isSaveGenerateImage=1, isRecordInf=1, NoImageFileFormat=1, is_g
             os.mkdir(storepath)
         rec_header = ['index', 'forward_speed', 'location_x', 'location_y', 'rotation_yaw']
         shotname, extension = os.path.splitext(extension)
-        if isRecordInf == 1:
+        if is_record_inf == 1:
             log_file = open(storepath + 'carinfo.cvs', 'a+', encoding='utf-8', newline='')
             log_csv_writer = csv.writer(log_file)
             log_csv_writer.writerow(rec_header)
@@ -88,12 +88,13 @@ def prepare_data(isSaveGenerateImage=1, isRecordInf=1, NoImageFileFormat=1, is_g
             timeindex = []  # np.arange(0, row_total, 1)
             already_draw_one = 0
             for a in range(row_total):
+                fig = plt.figure()
                 # if already_draw_one == 2:
                 #     break;
                 timeindex.append(already_draw_one)
                 first0 = next(reader, None)
                 if first0 is None:
-                    break;
+                    break
                 # 1.目标检测
                 object_detection_list = first0[0]
                 object_detection_list = ast.literal_eval(object_detection_list)
@@ -144,28 +145,29 @@ def prepare_data(isSaveGenerateImage=1, isRecordInf=1, NoImageFileFormat=1, is_g
                 lane_curvature_200m_hdmap = first0[13]  # 前方200m车道曲率
                 lane_curvature_300m_hdmap = first0[14]  # 前方300m车道曲率
 
-                # [bd_lng, bd_lat]=coordinateconvert.gcj02tobd09(float(vehicle_pos_lng_hdmap), float(vehicle_pos_lat_hdmap))
+                 # [bd_lng, bd_lat]=coordinateconvert.gcj02tobd09(float(vehicle_pos_lng_hdmap), float(vehicle_pos_lat_hdmap))
                 # logging.debug('动态地图经纬度：['+str(bd_lng)+','+str(bd_lat)+']')
 
                 # 5.静态地图
                 link_list_hdmap = first0[15]
                 link_list_hdmap = ast.literal_eval(link_list_hdmap)
-                # 静态地图
-                plt.subplot(234)
-                plt.title('Statics Map')  # 静态地图
-                plt.xlim(-500, 50)
-                # 设置y轴的刻度范围
-                plt.ylim(-500, 500)
-                Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap)
+                # 画静态地图
+                # plt.subplot(234)
+                # plt.title('Statics Map')  # 静态地图
+                # plt.xlim(-500, 50)
+                # # 设置y轴的刻度范围
+                # plt.ylim(-500, 500)
+                # Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap)
 
                 # 6.图片数据
-                # plt.subplot(231)
-                # plt.title('Image Data')  # 图片数据
+                plt.subplot(221)
+                # fig.add_subplot(221)
+                plt.title('Image Data')  # 图片数据
                 BacauseOfThereIsImage = 0
-                if not NoImageFileFormat == 1:
+                if not no_image_file_format == 1:
                     BacauseOfThereIsImage = 1
                     imageData_image = first0[16]
-                    # Image_Data(imageData_image, '')  # storepath+ '/scence' + str(a) + '.png'
+                    Image_Data(imageData_image, '')  # storepath+ '/scence' + str(a) + '.png'
 
                 # 7.定位
                 timestamp_of_location = first0[16 + BacauseOfThereIsImage]  # 时间戳
@@ -174,13 +176,29 @@ def prepare_data(isSaveGenerateImage=1, isRecordInf=1, NoImageFileFormat=1, is_g
                 # plt.title('latitude_+longitude')  # 航向角+车辆经纬度
                 # plt.plot(timestamp_of_location, heading_of_location, 'bo:')
                 latitude_of_location = first0[18 + BacauseOfThereIsImage]  # 车辆定位纬度
+                latitude_of_location = ast.literal_eval(latitude_of_location)
+
                 longitude_of_location = first0[19 + BacauseOfThereIsImage]  # 车辆定位经度
+                longitude_of_location = ast.literal_eval(longitude_of_location)
+
                 altitude_of_location = first0[20 + BacauseOfThereIsImage]  # 车辆定位高度
+                altitude_of_location = ast.literal_eval(altitude_of_location)
 
                 timestamp_of_location_his.append(timestamp_of_location)
                 latitude_of_location_his.append(latitude_of_location)
                 longitude_of_location_his.append(longitude_of_location)
                 altitude_of_location_his.append(altitude_of_location)
+
+                # 如果车速超速1倍 超过曲率限制的风险为5
+                if float(lane_curvature_100m_hdmap) > 0:
+                    if esp_vehicle_speed_stp_motion > math.sqrt(0.8 * 9.8 * abs(1 / float(lane_curvature_100m_hdmap))):
+                        risk_map = add_to_risk_map(5, vehicle_pos_lat_hdmap, vehicle_pos_lng_hdmap, risk_map,latitude_of_location,longitude_of_location)
+                if float(lane_curvature_200m_hdmap) > 0:
+                    if esp_vehicle_speed_stp_motion > math.sqrt(0.8 * 9.8 * abs(1 / float(lane_curvature_200m_hdmap))):
+                        risk_map = add_to_risk_map(4, vehicle_pos_lat_hdmap, vehicle_pos_lng_hdmap, risk_map,latitude_of_location,longitude_of_location)
+                if float(lane_curvature_300m_hdmap) > 0:
+                    if esp_vehicle_speed_stp_motion > math.sqrt(0.8 * 9.8 * abs(1 / float(lane_curvature_300m_hdmap))):
+                        risk_map = add_to_risk_map(3, vehicle_pos_lat_hdmap, vehicle_pos_lng_hdmap, risk_map,latitude_of_location,longitude_of_location)
 
                 # plt.plot(timestamp_of_location_his, latitude_of_location_his, 'bo:', label='latitude_of_location')
                 # plt.plot(timestamp_of_location_his, longitude_of_location_his, 'ro:', label='longitude_of_location')
@@ -201,31 +219,72 @@ def prepare_data(isSaveGenerateImage=1, isRecordInf=1, NoImageFileFormat=1, is_g
                 # 10.----开始画图------
                 # 目标检测 objs/fus_objs
                 # 遍历object数组
-                plt.subplot(221)
+                plt.subplot(222)
+                # fig.add_subplot(222)
                 plt.title('POI')  # 目标数据
                 plt.xlim(-40, 40)
                 # 设置y轴的刻度范围
                 plt.ylim(-40, 40)
-                Draw_Dection_POI(object_detection_list)
+                risk_map = Draw_Dection_POI(object_detection_list,risk_map,latitude_of_location,longitude_of_location)
                 # 把所有车道线搞出来
                 Draw_Lane_Line(Lane_line_list)
 
+                # 画热点图
+                # plt.subplot(222)
+                # plt.title('POI')  # 目标数据
+                # plt.xlim(-40, 40)
+                # # 设置y轴的刻度范围
+                # plt.ylim(-40, 40)
+                fig = plt.figure()
+                ax = fig.add_subplot(212)
+                # ax=plt.subplot(212)
+                plt.title('HOT MAP')  # 目标数据
+
+                X=[]
+                Y=[]
+                Z=[]
+                for i in range(0, risk_map.__len__()):
+                    X.append(risk_map[i].lateral)
+                    Y.append(risk_map[i].longitudinal)
+                    Z.append(risk_map[i].risk_value)
+                X1 = np.array(X)
+                X2 = np.vstack([X1, X1, X1])
+                Y1 = np.array(Y)
+                Y2 = np.vstack([Y1, Y1, Y1])
+                Z1 = np.array(Z)
+                matrix = np.diag(Z)
+                xmax = max(X)
+                xmin = min(X)
+                ymax = max(Y)
+                ymin = min(Y)
+                uniform_data = [[0] * (ymax-ymin)] *(xmax-xmin)
+                for i in range(0,X.__len__()):
+                    uniform_data[X[i]-xmin-1][Y[i]-ymin-1]=Z[i]*10
+                sns.heatmap(uniform_data, ax=ax, vmin=0, vmax=1, cmap='YlOrRd', annot=True, linewidths=0.1, cbar=True)
+                # ax.set_ylabel('longitudinal')  # 设置纵轴标签
+                # ax.set_xlabel('lateral')  # 设置横轴标签
+                # ax.plot_surface(X1, Y1, matrix, rstride=8, cstride=8, alpha=0.3)
+                # ax.plot_trisurf(X1, Y1, Z1, cmap="rainbow")
+
+                #plt.legend()
+                # plt.show()
+
                 # 保存到文件中去
-                if isRecordInf == 1:
+                if is_record_inf == 1:
                     # rec_header = ['index','forward_speed','location_x', 'location_y', 'rotation_yaw','lat_accel_stp','long_accel_stp']
                     log_csv_writer.writerow([str(already_draw_one), esp_vehicle_speed_stp_motion, vehicle_pos_lng_hdmap,
                                              vehicle_pos_lat_hdmap, esp_lat_accel_stp_motion,
                                              esp_long_accel_stp_motion])
 
-                if isSaveGenerateImage == 1:
+                if is_save_generate_image == 1:
                     print("path+'/image2/'+filename):" + path + '/image2/' + filename + '/' +
                           str(a) + '.jpg')
                     if not os.path.exists(path + '/image2/'):
                         os.mkdir(path + 'image2/')
                     if not os.path.exists(path + '/image2/' + filename):
                         os.mkdir(path + 'image2/' + filename)
-                    plt.savefig(path + '/image2/' + filename + '/' +
-                                str(a) + '.jpg',dpi=300, bbox_inches="tight")
+                    plt.savefig(path + '/image2/' + filename + '/hot' +
+                                str(a) + '.jpg', dpi=200, bbox_inches="tight")
                 plt.clf()
                 plt.xlim(-40, 40)
                 # 设置y轴的刻度范围
@@ -233,9 +292,9 @@ def prepare_data(isSaveGenerateImage=1, isRecordInf=1, NoImageFileFormat=1, is_g
                 plot_circle((0, 0), r=1)
                 # pass
                 already_draw_one = already_draw_one + 1
-        if isRecordInf == 1:
+        if is_record_inf == 1:
             log_file.close()
-        if is_generated_video==1:
+        if is_generated_video == 1:
             print(
                 'fmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
             os.system(
@@ -257,7 +316,6 @@ def Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap):
             line_y = []
             for k in range(0, lane_line_point_sets.__len__()):
                 lane_line_point_sets_cell = lane_line_point_sets['line_points_' + str(k)]
-                # x,y=coordinateconvert.wgs84tomercator(lane_line_point_sets_cell['lng'], lane_line_point_sets_cell['lat'])
                 x, y = coordinateconvert.millerToXY(lane_line_point_sets_cell['lng'], lane_line_point_sets_cell['lat'])
                 line_x.append(x - x0)
                 line_y.append(y - y0)
@@ -385,118 +443,216 @@ def plot_img(img_bin):
     return
 
 
-def Draw_Dection_POI(object_detection_list):
+class risk:  # 结构体
+    def __init__(self):
+        self.longitudinal = 0  # 纵向
+        self.lateral = 0  # 横向
+        self.risk_value = 0  # 风险值
+
+
+def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,longitude_of_location):
+    riskMapIndex = 0
     for i in range(0, object_detection_list.__len__()):
+        local_risk_value = 0
         # 如果目标目标跟踪ID不为空
-        track_id = object_detection_list['objs_' + str(i)]['track_id'];
+        track_id = object_detection_list['objs_' + str(i)]['track_id']
+        # track_id = ast.literal_eval(track_id)
         if track_id == 0:
-            continue;
+            continue
         # if already_draw_one == 2:
         #     break;
-        if track_id != 0:
-            # 获取目标类别
-            objs_classification = object_detection_list['objs_' + str(i)]['classification']
-            # 获取目标纵向和横向距离
-            objs_longitudinal = object_detection_list['objs_' + str(i)]['longitudinal_distance']
-            objs_lateral = object_detection_list['objs_' + str(i)]['lateral_distance']
-            # 获取trackID
-            track_id = object_detection_list['objs_' + str(i)]['track_id']
-            track_id_txt = str(track_id)
-            # print(type(track_id_txt))
-            objs_length = object_detection_list['objs_' + str(i)]['length']
-            objs_width = object_detection_list['objs_' + str(i)]['width']
-            heading_angle = object_detection_list['objs_' + str(i)]['heading_angle']
-            # 体地协同转换矩阵
-            Cbe = np.transpose(
-                np.array([[np.cos(heading_angle), np.sin(heading_angle), 0],
-                          [- np.sin(heading_angle), np.cos(heading_angle), 0], [0, 0, 1]]))
+        # if track_id != 0:
+        #local_riskmap.append(risk())
+        # 获取目标类别
+        objs_classification = object_detection_list['objs_' + str(i)]['classification']
+        # 获取目标纵向和横向距离
+        objs_longitudinal = object_detection_list['objs_' + str(i)]['longitudinal_distance']
+        objs_lateral = object_detection_list['objs_' + str(i)]['lateral_distance']
+        # objs_lateral=ast.literal_eval(objs_lateral)
+        # objs_longitudinal = ast.literal_eval(objs_longitudinal)
+        flag_There_is = 0
 
-            # print( objs_lateral,objs_longitudinal,objs_length,objs_width,track_id)
-            longitudinal = objs_longitudinal / 2  # 目标纵向距离驾驶目标纵向宽度
-            lateral = objs_lateral / 2  # 目标纵向距离驾驶目标横向宽度
-            length = objs_length / 2
-            width = objs_width / 2
-            txt = str(objs_classification) + ':' + track_id_txt + ',(' + str(objs_longitudinal) + ',' + str(
-                objs_lateral) + '),', str(objs_length), str(objs_width), \
-                # txt = str(heading_angle)
-            logging.debug(
-                'objs_classification:track_id_txt,(objs_longitudinal,objs_lateral),objs_length,objs_width,heading_angle')
-            logging.debug('目标是', txt)
-            # if abs(objs_longitudinal) <= 10:
-            # object_classification_class = ['未知目标', '汽车', '卡车', '摩托车', '行人', '自行车', '动物',
-            #                                '巴士', '其他', '购物车',
-            #                                '柱子', '锥桶', '已被锁上的车位锁', '未被锁上的车位锁 ']
-            if objs_classification == 0:
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='m')
-                logging.debug("unknow")
-            elif objs_classification == 1:
-                Draw_Rectangle_With_angle(objs_lateral, objs_longitudinal, objs_width, objs_length,
-                                          heading_angle, 'y', 'car')
-                # plt.Rectangle(
-                #          (objs_lateral, objs_longitudinal), 25, 25, fill=True, linewidth=1,edgecolor='red',facecolor='red')
-                # #plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='y')
-                logging.debug("汽车")
-            elif objs_classification == 2:
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='y',label='truck')
-                logging.debug("卡车")
-            elif objs_classification == 3:
-                logging.debug("摩托车")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='r',label='motocycle')
-            elif objs_classification == 4:
-                logging.debug("行人")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='r',label='pedestrian')
-            elif objs_classification == 5:
-                logging.debug("自行车")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='m',label='bicycle')
-            elif objs_classification == 6:
-                logging.debug("动物")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='m',label='animal')
-            elif objs_classification == 7:
-                logging.debug("巴士")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='g',label='bus')
-            elif objs_classification == 8:
-                logging.debug("其他")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='g',label='others')
-            elif objs_classification == 9:
-                logging.debug("购物车")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='c',label='Shopping Cart')
-            elif objs_classification == 10:
-                logging.debug("柱子")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='c',label='pillar')
-            elif objs_classification == 11:
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='b',label='cone')
-                logging.debug("锥桶")
-            elif objs_classification == 12:
-                logging.debug("已被锁上的车位锁")
-                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='b',label='Locked parking space')
-            else:
-                logging.debug("未被锁上的车位锁")
-                plot_circle((objs_lateral, objs_longitudinal), r=1,label='unLocked parking space')
-            cut_status = object_detection_list['objs_' + str(i)]['cut_status']  # Cut-in状态
-            status = object_detection_list['objs_' + str(i)]['status']  # 目标运动状态
-            longitudinal_relative_velocity = object_detection_list['objs_' + str(i)][
-                'longitudinal_relative_velocity']  # 纵向相对速度
-            lateral_relative_velocity = object_detection_list['objs_' + str(i)][
-                'lateral_relative_velocity']  # 横向相对速度
-            obj_refer_points = object_detection_list['objs_' + str(i)][
-                'obj_refer_points']  # 目标测量参考点：下一级为纵向距离、横向距离
-            for j in range(0, obj_refer_points.__len__()):
-                longitudinal_distance = obj_refer_points['obj_refer_points_'+str(j)]['longitudinal_distance']
-                lateral_distance = obj_refer_points['obj_refer_points_' + str(j)]['lateral_distance']
-            # plt.Rectangle(
-            #     (objs_lateral, objs_longitudinal), objs_length, objs_width, fill=True, edgecolor='red',
-            #     linewidth=1)
-            # plot_circle((objs_lateral, objs_longitudinal), r=1)
+        # 获取trackID
+        # track_id = object_detection_list['objs_' + str(i)]['track_id']
+        # track_id_txt = str(track_id)
+        # riskMap[riskMapIndex].track_id = track_id_txt
+        # print(type(track_id_txt))
+        objs_length = object_detection_list['objs_' + str(i)]['length']
+        objs_width = object_detection_list['objs_' + str(i)]['width']
+        heading_angle = object_detection_list['objs_' + str(i)]['heading_angle']
+        # 体地协同转换矩阵
+        Cbe = np.transpose(
+            np.array([[np.cos(heading_angle), np.sin(heading_angle), 0],
+                      [- np.sin(heading_angle), np.cos(heading_angle), 0], [0, 0, 1]]))
 
-            ax = plt.gca();  # 获得坐标轴的句柄
-            plt.text(lateral + objs_width / 2, longitudinal + objs_length / 2, '%s' %
-                     object_classification_class[objs_classification], ha='center', va='bottom', fontsize=7,transform=ax.transAxes)
-            # ax.add_patch(plt.Rectangle(
-            #     (objs_lateral, objs_longitudinal), objs_length, objs_width))
-            # ax.add_patch(plt.Rectangle((0, 0), 1, 1))
-            # ax = fig.add_subplot(111)
-            already_draw_one = 1
-    return
+        # print( objs_lateral,objs_longitudinal,objs_length,objs_width,track_id)
+        longitudinal = objs_longitudinal / 2  # 目标纵向距离
+        lateral = objs_lateral / 2  # 目标纵向距离驾驶目标横向宽度
+        # 基本分及权重
+        distance_weight=1
+        size_weight=1
+        class_type_score = 0
+        status_score = 0
+        cutin_status_score = 0
+
+        if longitudinal <30 and lateral <30:
+            distance_weight=1.5
+        elif longitudinal <100 and lateral <100:
+            distance_weight = 1.2
+        else:
+            distance_weight = 1.
+        length = objs_length / 2 #目标长度[m]
+        width = objs_width / 2
+        if length>5 and  width > 5:
+            size_weight= 1.5
+        elif length>3 and  width > 2:
+            size_weight= 1.2
+        else:
+            size_weight = 1
+        txt = str(objs_classification) + ':' + str(track_id) + ',(' + str(objs_longitudinal) + ',' + str(
+            objs_lateral) + '),', str(objs_length), str(objs_width), \
+        # txt = str(heading_angle)
+        logging.debug(
+            'objs_classification:track_id_txt,(objs_longitudinal,objs_lateral),objs_length,objs_width,heading_angle')
+        logging.debug('目标是', txt)
+        # if abs(objs_longitudinal) <= 10:
+        # object_classification_class = ['未知目标', '汽车', '卡车', '摩托车', '行人', '自行车', '动物',
+        #                                '巴士', '其他', '购物车',
+        #                                '柱子', '锥桶', '已被锁上的车位锁', '未被锁上的车位锁 ']
+
+        if objs_classification == 0:
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='black')
+            class_type_score = 2
+            logging.debug("unknow")
+        elif objs_classification == 1:
+            Draw_Rectangle_With_angle(objs_lateral, objs_longitudinal, objs_width, objs_length,
+                                      heading_angle, 'yellow', 'car')
+            class_type_score = 5
+            logging.debug("汽车")
+        elif objs_classification == 2:
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='orange', labelstr='truck')
+            class_type_score = 5
+            logging.debug("卡车")
+        elif objs_classification == 3:
+            logging.debug("摩托车")
+            class_type_score = 5
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='palegreen', labelstr='motocycle')
+        elif objs_classification == 4:
+            logging.debug("行人")
+            class_type_score = 8
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='red', labelstr='pedestrian')
+        elif objs_classification == 5:
+            logging.debug("自行车")
+            class_type_score = 5
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='purple', labelstr='bicycle')
+        elif objs_classification == 6:
+            logging.debug("动物")
+            class_type_score = 5
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkgreen', labelstr='animal')
+        elif objs_classification == 7:
+            logging.debug("巴士")
+            class_type_score = 5
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='green', labelstr='bus')
+        elif objs_classification == 8:
+            logging.debug("其他")
+            class_type_score = 5
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='gray', labelstr='others')
+        elif objs_classification == 9:
+            logging.debug("购物车")
+            class_type_score = 5
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='cyan', labelstr='Shopping Cart')
+        elif objs_classification == 10:
+            logging.debug("柱子")
+            class_type_score = 4
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='crimson', labelstr='pillar')
+        elif objs_classification == 11:
+            class_type_score = 3
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='blanchedalmond', labelstr='cone')
+            logging.debug("锥桶")
+        elif objs_classification == 12:
+            class_type_score = 2
+            logging.debug("已被锁上的车位锁")
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkslategray',
+                        labelstr='Locked parking space')
+        else:
+            logging.debug("未被锁上的车位锁")
+            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkslategray',
+                        labelstr='unLocked parking space')
+        cut_status = object_detection_list['objs_' + str(i)]['cut_status']  # Cut-in状态
+        status = object_detection_list['objs_' + str(i)]['status']  # 目标运动状态
+        if status == 0 or status==2:
+            status_score=0.5
+        elif  status == 3:
+            status_score = 0.8
+        elif status == 1:
+            status_score = 1.2
+
+        if cut_status == 0: #未知：0
+            cutin_status_score=1
+        elif  cut_status == 2: #正在切入:2
+            cutin_status_score = 1.5
+        elif  cut_status == 3: #正在切出:3
+            cutin_status_score = 0.8
+        elif cut_status == 1: #正常:1
+            cutin_status_score = 1.2
+        longitudinal_relative_velocity = object_detection_list['objs_' + str(i)][
+            'longitudinal_relative_velocity']  # 纵向相对速度
+        lateral_relative_velocity = object_detection_list['objs_' + str(i)][
+            'lateral_relative_velocity']  # 横向相对速度
+        obj_refer_points = object_detection_list['objs_' + str(i)][
+            'obj_refer_points']  # 目标测量参考点：下一级为纵向距离、横向距离
+
+        if longitudinal_relative_velocity > 100 or lateral_relative_velocity >100:
+            distance_weight = distance_weight * 1.8
+        elif  longitudinal_relative_velocity > 50 or lateral_relative_velocity >50:
+            distance_weight = distance_weight * 1.5
+        for j in range(0, obj_refer_points.__len__()):
+            longitudinal_distance = obj_refer_points['obj_refer_points_' + str(j)]['longitudinal_distance']
+            lateral_distance = obj_refer_points['obj_refer_points_' + str(j)]['lateral_distance']
+        if abs(longitudinal_distance)<5 or abs(lateral_distance)<5:
+            distance_weight  = distance_weight*1.5
+        local_risk_value = distance_weight * size_weight * class_type_score * status_score *cutin_status_score
+        print(str(local_risk_value)+'='+str(distance_weight)+'*'+str(size_weight)+'*'+str(class_type_score)+'*'+str(status_score)+'*'+str(cutin_status_score))
+        local_riskmap = add_to_risk_map(local_risk_value, objs_lateral, objs_longitudinal, local_riskmap,latitude_of_location,longitude_of_location)
+
+        # plt.Rectangle(
+        #     (objs_lateral, objs_longitudinal), objs_length, objs_width, fill=True, edgecolor='red',
+        #     linewidth=1)
+        # plot_circle((objs_lateral, objs_longitudinal), r=1)
+
+        ax = plt.gca()  # 获得坐标轴的句柄
+        plt.text(lateral + objs_width / 2, longitudinal + objs_length / 2, '%s' %
+                 object_classification_class[objs_classification], ha='center', va='bottom', fontsize=7,
+                 transform=ax.transAxes)
+        # ax.add_patch(plt.Rectangle(
+        #     (objs_lateral, objs_longitudinal), objs_length, objs_width))
+        # ax.add_patch(plt.Rectangle((0, 0), 1, 1))
+        # ax = fig.add_subplot(111)
+        riskMapIndex = riskMapIndex + 1
+        already_draw_one = 1
+    return local_riskmap
+
+
+def add_to_risk_map(local_risk_value, objs_lateral, objs_longitudinal, riskMap,latitude_of_location,longitude_of_location):
+    if len(riskMap) == 0:
+        riskMap.append(risk())
+        riskMap[riskMap.__len__()-1].lateral = round(objs_lateral-latitude_of_location)
+        riskMap[riskMap.__len__()-1].longitudinal = round(objs_longitudinal-longitude_of_location)
+        riskMap[riskMap.__len__()-1].risk_value = local_risk_value.__round__(2)
+    else:
+        flag_There_is = 0
+        for ii in range(len(riskMap)):
+            if riskMap[ii].longitudinal == objs_lateral.__round__(6) and riskMap[
+                ii].longitudinal == objs_longitudinal.__round__(6):
+                flag_There_is = 1
+                riskMap[ii].risk_value = local_risk_value + riskMap[ii].risk_value.__round__(2)
+                break
+        if flag_There_is == 0:
+            riskMap.append(risk())
+            riskMap[riskMap.__len__() - 1].lateral = round(objs_lateral - latitude_of_location)
+            riskMap[riskMap.__len__() - 1].longitudinal = round(objs_longitudinal - longitude_of_location)
+            riskMap[riskMap.__len__()-1].risk_value = local_risk_value.__round__(2)
+    return riskMap
 
 
 def Draw_Rectangle_With_angle(x, y, width, height, angle, colorstr, label):
@@ -543,7 +699,7 @@ def Draw_Rectangle_With_angle(x, y, width, height, angle, colorstr, label):
 
 def Draw_Lane_Line(Lane_line_list):
     for i in range(0, Lane_line_list.__len__()):
-        Lane_line_list['lines_' + str(i)]
+        # Lane_line_list['lines_' + str(i)]
         if Lane_line_list['lines_' + str(i)]['curve_parameter_a0'] != 0 or \
                 Lane_line_list['lines_' + str(i)]['curve_parameter_a1'] != 0 or \
                 Lane_line_list['lines_' + str(i)]['curve_parameter_a2'] != 0:
@@ -617,13 +773,13 @@ def parallel_curve(xs, ys, ks, dis=1.):
     return pxs, pys
 
 
-def plot_circle(center=(3, 3), r=2, colorstr='k',labelstr=''):
+def plot_circle(center=(3, 3), r=2, colorstr='k', labelstr=''):
     try:
         x = np.linspace(center[0] - r, center[0] + r, 5000)
         y1 = np.sqrt(r ** 2 - (x - center[0]) ** 2) + center[1]
         y2 = -np.sqrt(r ** 2 - (x - center[0]) ** 2) + center[1]
-        plt.plot(x, y1, c=colorstr,label=labelstr)
-        plt.plot(x, y2, c=colorstr,label=labelstr)
+        plt.plot(x, y1, c=colorstr, label=labelstr)
+        plt.plot(x, y2, c=colorstr, label=labelstr)
     except:
         pass
 
@@ -660,8 +816,18 @@ if __name__ == '__main__':
     # for i in range(-360, 360):
     #     print('t(', i, '):', heading_angle_Cali(i))
     declare_a_global_variable()
-    plt.figure()  # 字符型linestyle使用方法
+    config = {
+        "font.family": 'serif',  # sans-serif/serif/cursive/fantasy/monospace
+        "font.size": 10,  # medium/large/small
+        'font.style': 'normal',  # normal/italic/oblique
+        'font.weight': 'normal',  # bold
+        "mathtext.fontset": 'cm',  # 'cm' (Computer Modern)
+        "font.serif": ['cmb10'],  # 'Simsun'宋体
+        "axes.unicode_minus": False,  # 用来正常显示负号
+    }
 
+    plt.figure()  # 字符型linestyle使用方法
+    plt.rcParams.update(config)
     # plt.xlim(-40, 40)
     # # 设置y轴的刻度范围
     # plt.ylim(-40, 40)
@@ -674,8 +840,8 @@ if __name__ == '__main__':
     isSaveGenerateImage = 1
     isRecordInf = 0
     NoImageFileFormat = 0
-    is_generated_video=0
-    prepare_data(isSaveGenerateImage, isRecordInf, NoImageFileFormat,is_generated_video)
+    is_generated_video = 0
+    prepare_data(isSaveGenerateImage, isRecordInf, NoImageFileFormat, is_generated_video)
     # plt.legend()
 
     plt.show()
