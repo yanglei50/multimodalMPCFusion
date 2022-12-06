@@ -66,7 +66,7 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
             os.mkdir(path + 'images/' + filename)
         if not os.path.exists(storepath):
             os.mkdir(storepath)
-        rec_header = ['index', 'forward_speed', 'location_x', 'location_y', 'rotation_yaw']
+        rec_header = ['index', 'forward_speed', 'location_x', 'location_y', 'rotation_yaw','complex_value']
         shotname, extension = os.path.splitext(extension)
         if is_record_inf == 1:
             log_file = open(storepath + 'carinfo.cvs', 'a+', encoding='utf-8', newline='')
@@ -275,7 +275,6 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
                     log_csv_writer.writerow([str(already_draw_one), esp_vehicle_speed_stp_motion, vehicle_pos_lng_hdmap,
                                              vehicle_pos_lat_hdmap, esp_lat_accel_stp_motion,
                                              esp_long_accel_stp_motion])
-
                 if is_save_generate_image == 1:
                     print("path+'/image2/'+filename):" + path + '/image2/' + filename + '/' +
                           str(a) + '.jpg')
