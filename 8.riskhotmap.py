@@ -3,9 +3,12 @@
 # 数据路径
 import ast
 import csv
+import getopt
 import logging
 import math
 import os
+import sys
+
 import matplotlib
 import matplotlib.pyplot as plt
 import cv2
@@ -13,7 +16,7 @@ import numpy as np
 import matplotlib.cm as cm
 from matplotlib.colors import LogNorm
 import coordinateconvert
-import seaborn as sns
+# import seaborn as sns
 csv.field_size_limit(500 * 1024 * 1024)
 
 object_classification_class = ['未知目标', '汽车', '卡车', '摩托车', '行人', '自行车', '动物', '巴士', '其他', '购物车',
@@ -34,15 +37,18 @@ linestyle_tuple = [
     ('densely dashdotdotted', (0, (3, 1, 1, 1, 1, 1)))]
 
 
-def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format=1, is_generated_video=1):
+def prepare_data(path,targetfile,is_save_generate_image=1, is_record_inf=1, no_image_file_format=1, is_generated_video=1):
     # 读取文件夹下所有文件的名字并把他们用列表存起来
     # path = "D:/DataContest/data/0802 (无图数据1)/0802/"
-    path = 'F:/DataContest/data/0805 (有图数据)/'
+    is_fig = 0
+    if is_save_generate_image == 1 or not no_image_file_format == 1 or is_generated_video==1:
+        is_fig = 1
     # path='/home/lawrence/Documents/Bigcontest/data/0802(无图数据1)/0802/'
     # file_image = 'F:\\car\\object\\image4\\0805 (1)\\0805\\image'
     datanames = os.listdir(path)
     file_list = []
     risk_map = []
+    global_complex_map = []
     for i in datanames:
         file_list.append(i)
     already_draw_one = 0
@@ -52,7 +58,7 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
         file = path + b
         if not os.access(file, os.X_OK):
             continue
-        if not b == '1659666617.49_1659666654.17.csv':
+        if not b == targetfile:
             continue
         try:
             row_total = len(open(file).readlines())
@@ -69,7 +75,7 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
         rec_header = ['index', 'forward_speed', 'location_x', 'location_y', 'rotation_yaw','complex_value']
         shotname, extension = os.path.splitext(extension)
         if is_record_inf == 1:
-            log_file = open(storepath + 'carinfo.cvs', 'a+', encoding='utf-8', newline='')
+            log_file = open(storepath + 'carinfo.csv', 'a+', encoding='utf-8', newline='')
             log_csv_writer = csv.writer(log_file)
             log_csv_writer.writerow(rec_header)
         with open(file) as f:
@@ -86,9 +92,13 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
             altitude_of_location_his = []
 
             timeindex = []  # np.arange(0, row_total, 1)
+            static_complex_map = []
+            dynamic_complex_map = []
+
             already_draw_one = 0
             for a in range(row_total):
-                fig = plt.figure()
+                # fig = plt.figure()
+
                 # if already_draw_one == 2:
                 #     break;
                 timeindex.append(already_draw_one)
@@ -120,15 +130,16 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
                 sas_steering_angle_stp_motion = ast.literal_eval(sas_steering_angle_stp_motion)
                 sas_steering_angle_stp_motion_his.append(esp_long_accel_stp_motion)
 
-                # plt.subplot(235)
-                # plt.title('Self Vec Motion')  # 自车运动
-                # plt.plot(timeindex, esp_yaw_rate_stp_motion_his, linestyle='solid', color='g',
-                #          label='偏航率(车横摆角速度)[degree/s]')
-                # plt.plot(timeindex, esp_vehicle_speed_stp_motion_his, 'ro:', linewidth=1.0, label='车速信号')
-                # plt.plot(timeindex, esp_lat_accel_stp_motion_his, 'bo:', linewidth=1.0, label='横向加速度')
-                # plt.plot(timeindex, esp_long_accel_stp_motion_his, 'yo:', linewidth=1.0, label='纵向加速度')
-                # plt.plot(timeindex, sas_steering_angle_stp_motion_his, 'mo:', linewidth=1.0,
-                #          label='方向盘转向角度[degree]')
+                if is_fig == 1:
+                    plt.subplot(235)
+                    plt.title('Self Vec Motion')  # 自车运动
+                    plt.plot(timeindex, esp_yaw_rate_stp_motion_his, linestyle='solid', color='g',
+                             label='偏航率(车横摆角速度)[degree/s]')
+                    plt.plot(timeindex, esp_vehicle_speed_stp_motion_his, 'ro:', linewidth=1.0, label='车速信号')
+                    plt.plot(timeindex, esp_lat_accel_stp_motion_his, 'bo:', linewidth=1.0, label='横向加速度')
+                    plt.plot(timeindex, esp_long_accel_stp_motion_his, 'yo:', linewidth=1.0, label='纵向加速度')
+                    plt.plot(timeindex, sas_steering_angle_stp_motion_his, 'mo:', linewidth=1.0,
+                             label='方向盘转向角度[degree]')
                 # 3.车道线
                 Lane_line_list = first0[6]
                 Lane_line_list = ast.literal_eval(Lane_line_list)
@@ -152,17 +163,18 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
                 link_list_hdmap = first0[15]
                 link_list_hdmap = ast.literal_eval(link_list_hdmap)
                 # 画静态地图
-                # plt.subplot(234)
-                # plt.title('Statics Map')  # 静态地图
-                # plt.xlim(-500, 50)
-                # # 设置y轴的刻度范围
-                # plt.ylim(-500, 500)
-                # Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap)
-
+                if is_fig == 1:
+                    plt.subplot(234)
+                    plt.title('Statics Map')  # 静态地图
+                    plt.xlim(-500, 50)
+                    plt.ylim(-500, 500)
+                statics_comple_value2 =Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap,is_fig)
+                # static_complex_map.append(statics_comple_value2)
                 # 6.图片数据
-                plt.subplot(221)
-                # fig.add_subplot(221)
-                plt.title('Image Data')  # 图片数据
+                if is_fig == 1:
+                    plt.subplot(221)
+                    # fig.add_subplot(221)
+                    plt.title('Image Data')  # 图片数据
                 BacauseOfThereIsImage = 0
                 if not no_image_file_format == 1:
                     BacauseOfThereIsImage = 1
@@ -207,9 +219,10 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
                 # 8.驾驶员行为数据
                 bcmlight = first0[21 + BacauseOfThereIsImage]  # 转向灯开关状态信号（未使用：0，左转：1，右转：2，未知：3）
                 # 9.可行驶区域点集
-                # plt.subplot(232)
-                # plt.title('Freespace')  # 可行驶区域点集
-                # Free_Space_Desc(first0, BacauseOfThereIsImage)
+                if is_fig == 1:
+                    plt.subplot(232)
+                    plt.title('Freespace')  # 可行驶区域点集
+                Draw_Free_Space_Desc(first0, BacauseOfThereIsImage,is_fig)
 
                 longitudinal = 0  # 纵向
                 lateral = 0  # 横向
@@ -219,96 +232,115 @@ def prepare_data(is_save_generate_image=1, is_record_inf=1, no_image_file_format
                 # 10.----开始画图------
                 # 目标检测 objs/fus_objs
                 # 遍历object数组
-                plt.subplot(222)
-                # fig.add_subplot(222)
-                plt.title('POI')  # 目标数据
-                plt.xlim(-40, 40)
-                # 设置y轴的刻度范围
-                plt.ylim(-40, 40)
-                risk_map = Draw_Dection_POI(object_detection_list,risk_map,latitude_of_location,longitude_of_location)
+                if is_fig == 1:
+                    plt.subplot(222)
+                    # fig.add_subplot(222)
+                    plt.title('POI')  # 目标数据
+                    plt.xlim(-40, 40)
+                    # 设置y轴的刻度范围
+                    plt.ylim(-40, 40)
+                risk_map,statics_complex_value,dynamic_complex_value = Draw_Dection_POI(is_fig,object_detection_list,risk_map,latitude_of_location,longitude_of_location,risk_map)
+                static_complex_map.append(statics_complex_value+statics_comple_value2)
+                dynamic_complex_map.append(dynamic_complex_value)
                 # 把所有车道线搞出来
-                Draw_Lane_Line(Lane_line_list)
+                Draw_Lane_Line(is_fig,Lane_line_list)
+
+                global_complex_map.append(statics_complex_value+statics_comple_value2+dynamic_complex_value)
 
                 # 画热点图
-                # plt.subplot(222)
-                # plt.title('POI')  # 目标数据
-                # plt.xlim(-40, 40)
-                # # 设置y轴的刻度范围
-                # plt.ylim(-40, 40)
-                fig = plt.figure()
-                ax = fig.add_subplot(212)
-                # ax=plt.subplot(212)
-                plt.title('HOT MAP')  # 目标数据
+                if is_fig == 1:
+                    # plt.subplot(222)
+                    # plt.title('POI')  # 目标数据
+                    # plt.xlim(-40, 40)
+                    # # 设置y轴的刻度范围
+                    # plt.ylim(-40, 40)
+                    fig = plt.figure()
+                    # fig.add_subplot(212)
+                    # ax=plt.subplot(212)
+                    plt.title('Env Complex Value')  # 目标数据
+                    plt.plot(timeindex, static_complex_map, color='green', label='static_complex_map')
+                    plt.plot(timeindex, dynamic_complex_map, color='red', label='dynamic_complex_map')
 
-                X=[]
-                Y=[]
-                Z=[]
-                for i in range(0, risk_map.__len__()):
-                    X.append(risk_map[i].lateral)
-                    Y.append(risk_map[i].longitudinal)
-                    Z.append(risk_map[i].risk_value)
-                X1 = np.array(X)
-                X2 = np.vstack([X1, X1, X1])
-                Y1 = np.array(Y)
-                Y2 = np.vstack([Y1, Y1, Y1])
-                Z1 = np.array(Z)
-                matrix = np.diag(Z)
-                xmax = max(X)
-                xmin = min(X)
-                ymax = max(Y)
-                ymin = min(Y)
-                uniform_data = [[0] * (ymax-ymin)] *(xmax-xmin)
-                for i in range(0,X.__len__()):
-                    uniform_data[X[i]-xmin-1][Y[i]-ymin-1]=Z[i]*10
-                sns.heatmap(uniform_data, ax=ax, vmin=0, vmax=1, cmap='YlOrRd', annot=True, linewidths=0.1, cbar=True)
+                # plt.plot(sub_axix, test_acys, color='red', label='testing accuracy')                #
+                # X=[]
+                # Y=[]
+                # Z=[]
+                # for i in range(0, risk_map.__len__()):
+                #     X.append(risk_map[i].lateral)
+                #     Y.append(risk_map[i].longitudinal)
+                #     Z.append(risk_map[i].risk_value)
+                # X1 = np.array(X)
+                # X2 = np.vstack([X1, X1, X1])
+                # Y1 = np.array(Y)
+                # Y2 = np.vstack([Y1, Y1, Y1])
+                # Z1 = np.array(Z)
+                # matrix = np.diag(Z)
+                # xmax = max(X)
+                # xmin = min(X)
+                # ymax = max(Y)
+                # ymin = min(Y)
+                # uniform_data = [[0] * (ymax-ymin)] *(xmax-xmin)
+                # for i in range(0,X.__len__()):
+                #     uniform_data[X[i]-xmin-1][Y[i]-ymin-1]=Z[i]*10
+                # sns.heatmap(uniform_data, ax=ax, vmin=0, vmax=1, cmap='YlOrRd', annot=True, linewidths=0.1, cbar=True)
                 # ax.set_ylabel('longitudinal')  # 设置纵轴标签
                 # ax.set_xlabel('lateral')  # 设置横轴标签
                 # ax.plot_surface(X1, Y1, matrix, rstride=8, cstride=8, alpha=0.3)
                 # ax.plot_trisurf(X1, Y1, Z1, cmap="rainbow")
-
-                #plt.legend()
+                if is_fig == 1:
+                    plt.legend()
                 # plt.show()
-
                 # 保存到文件中去
                 if is_record_inf == 1:
                     # rec_header = ['index','forward_speed','location_x', 'location_y', 'rotation_yaw','lat_accel_stp','long_accel_stp']
                     log_csv_writer.writerow([str(already_draw_one), esp_vehicle_speed_stp_motion, vehicle_pos_lng_hdmap,
                                              vehicle_pos_lat_hdmap, esp_lat_accel_stp_motion,
-                                             esp_long_accel_stp_motion])
-                if is_save_generate_image == 1:
-                    print("path+'/image2/'+filename):" + path + '/image2/' + filename + '/' +
+                                             esp_long_accel_stp_motion,statics_complex_value+statics_comple_value2+dynamic_complex_value])
+                if is_save_generate_image == 1 and is_fig == 1:
+                    print("path+'/image2/'+filename):" + path + '/image2/' + filename + '/complex' +
                           str(a) + '.jpg')
                     if not os.path.exists(path + '/image2/'):
                         os.mkdir(path + 'image2/')
                     if not os.path.exists(path + '/image2/' + filename):
                         os.mkdir(path + 'image2/' + filename)
-                    plt.savefig(path + '/image2/' + filename + '/hot' +
-                                str(a) + '.jpg', dpi=200, bbox_inches="tight")
-                plt.clf()
-                plt.xlim(-40, 40)
-                # 设置y轴的刻度范围
-                plt.ylim(-40, 40)
-                plot_circle((0, 0), r=1)
+                    try:
+                        plt.savefig(path + '/image2/' + filename + '/complex' +
+                                    str(a) + '.jpg', dpi=200, bbox_inches="tight")
+                    except:
+                        print('save figure error')
+                if is_fig == 1:
+                    plt.close()
+                # plt.clf()
+                # plt.xlim(-40, 40)
+                # # 设置y轴的刻度范围
+                # plt.ylim(-40, 40)
+                # plot_circle((0, 0), r=1)
                 # pass
                 already_draw_one = already_draw_one + 1
         if is_record_inf == 1:
             log_file.close()
         if is_generated_video == 1:
             print(
-                'fmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
+                'ffmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
             os.system(
                 'ffmpeg  -y -framerate 24.0 -i "' + path + 'image2/' + filename + '/%d.png" -c:v libx264 -crf 30 -preset:v medium -pix_fmt yuv420p  -vf "scale=960:-2" "' + path + 'image2/' + filename + '/' + filename + '.mov"')
+    total_complex = 0
+    for i in range(0, global_complex_map.__len__()):
+        total_complex = total_complex+global_complex_map[i]
+    print('\n total_complex='+str(total_complex)+'')
     return
 
 
-def Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap):
+def Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap,is_fig = 1):
+    statics_comple_value = 0
     for i in range(0, link_list_hdmap.__len__()):
         link_id = link_list_hdmap['links_' + str(i)]['link_id']
         link_length = link_list_hdmap['links_' + str(i)]['link_length']  # 路段的长度:[m]
         link_type = link_list_hdmap['links_' + str(i)]['type']  # 道路类型:[/],(0,0,3),[/],(1,0),区分路段为高速、匝道、城区
         lane_attributelists = link_list_hdmap['links_' + str(i)]['lane_attributelists']  # 车道属性集合
         lane_lines_sets = link_list_hdmap['links_' + str(i)]['lines']  # 车道线集合
-        plot_circle((0, 0), r=5, colorstr='r')
+        if is_fig == 1:
+            plot_circle((0, 0), r=5, colorstr='r')
         for j in range(0, lane_lines_sets.__len__()):
             lane_line_point_sets = lane_lines_sets['lines_' + str(j)]['line_points']
             line_x = []
@@ -319,60 +351,79 @@ def Draw_link_list_hdmap_static_map(x0, y0, link_list_hdmap):
                 line_x.append(x - x0)
                 line_y.append(y - y0)
             if lane_lines_sets['lines_' + str(j)]['line_type'] == 0:  # 实线
-                plt.plot(line_x, line_y, linestyle='solid', color='b', linewidth=1.0)
+                if is_fig == 1:
+                    plt.plot(line_x, line_y, linestyle='solid', color='b', linewidth=1.0)
                 logging.debug('实线')
             elif lane_lines_sets['lines_' + str(j)]['line_type'] == 1:  # 虚线
-                plt.plot(line_x, line_y, linestyle='dotted', color='b', linewidth=1)
+                if is_fig == 1:
+                    plt.plot(line_x, line_y, linestyle='dotted', color='b', linewidth=1)
                 logging.debug('虚线')
             elif lane_lines_sets['lines_' + str(j)]['line_type'] == 2:  # 双虚线
-                plt.plot(line_x, line_y, color='b',
+                if is_fig == 1:
+                    plt.plot(line_x, line_y, color='b',
                          linestyle='dotted', linewidth=1.0)
-                line_x2 = [x + 0.1 for x in line_x]
-                line_y2 = [x + 0.1 for x in line_y]
-                plt.plot(line_x2, line_y2, color='b',
-                         linestyle='dotted', linewidth=1.0)
+                    line_x2 = [x + 0.1 for x in line_x]
+                    line_y2 = [x + 0.1 for x in line_y]
+                    plt.plot(line_x2, line_y2, color='b',
+                             linestyle='dotted', linewidth=1.0)
                 logging.debug('双虚线')
             elif lane_lines_sets['lines_' + str(j)]['line_type'] == 3:  # 虚实线
-                plt.plot(line_x, line_y, color='b',
-                         linestyle='dotted', linewidth=1.0)
-                line_x2 = [x + 0.1 for x in line_x]
-                line_y2 = [x + 0.1 for x in line_y]
-                plt.plot(line_x2, line_y2, color='b',
-                         linestyle='solid', linewidth=1.0)
+                if is_fig == 1:
+                    plt.plot(line_x, line_y, color='b',
+                             linestyle='dotted', linewidth=1.0)
+                    line_x2 = [x + 0.1 for x in line_x]
+                    line_y2 = [x + 0.1 for x in line_y]
+                    plt.plot(line_x2, line_y2, color='b',
+                             linestyle='solid', linewidth=1.0)
                 logging.debug('虚实线')
             elif lane_lines_sets['lines_' + str(j)]['line_type'] == 4:  # 实虚线
-                plt.plot(line_x, line_y, color='b',
-                         linestyle='solid', linewidth=1.0)
-                line_x2 = [x + 0.1 for x in line_x]
-                line_y2 = [x + 0.1 for x in line_y]
-                plt.plot(line_x2, line_y2, color='b',
-                         linestyle='dotted', linewidth=1.0)
+                if is_fig == 1:
+                    plt.plot(line_x, line_y, color='b',
+                             linestyle='solid', linewidth=1.0)
+                    line_x2 = [x + 0.1 for x in line_x]
+                    line_y2 = [x + 0.1 for x in line_y]
+                    plt.plot(line_x2, line_y2, color='b',
+                             linestyle='dotted', linewidth=1.0)
                 logging.debug('实虚线')
             elif lane_lines_sets['lines_' + str(j)]['line_type'] == 5:  # 双实线
-                plt.plot(line_x, line_y, color='b',
-                         linestyle='solid', linewidth=1.0)
-                line_x2 = [x + 0.1 for x in line_x]
-                line_y2 = [x + 0.1 for x in line_y]
-                plt.plot(line_x2, line_y2, color='b',
-                         linestyle='solid', linewidth=1.0)
+                if is_fig == 1:
+                    plt.plot(line_x, line_y, color='b',
+                             linestyle='solid', linewidth=1.0)
+                    line_x2 = [x + 0.1 for x in line_x]
+                    line_y2 = [x + 0.1 for x in line_y]
+                    plt.plot(line_x2, line_y2, color='b',
+                             linestyle='solid', linewidth=1.0)
                 logging.debug('双实线')
             # plt.plot(line_x,line_y, color='blue', label='test1')
             # plot_circle((lane_line_point_sets_cell['lng'],lane_line_point_sets_cell['lat']), r=0.5,colorstr='green')
             # print('('+str(lane_line_point_sets_cell['lng'])+','+str(lane_line_point_sets_cell['lat'])+')----('+str(x-x0)+','+str(y-y0)+')')
         lan_line_ground_markings = link_list_hdmap['links_' + str(i)]['ground_markings']  # 地面标识
+        if not lan_line_ground_markings == 0:
+            statics_comple_value = statics_comple_value + 0.1
         lan_line_ground_traffic_light = link_list_hdmap['links_' + str(i)]['traffic_light']  # 交通灯信息
         lan_line_traffic_info = link_list_hdmap['links_' + str(i)]['traffic_info']  # 交通标志牌信息
         lan_line_complex_intersection = link_list_hdmap['links_' + str(i)][
             'complex_intersection']  # 是否为路口link
+        if lan_line_complex_intersection == 1:
+            statics_comple_value = statics_comple_value + 0.1
         lan_line_successive_link_ids = link_list_hdmap['links_' + str(i)]['successive_link_ids']  # 后继link编号
+        # print('lan_line_successive_link_ids='+lan_line_successive_link_ids+',current_link_id='+str(link_id))
         lan_line_is_routing_path = link_list_hdmap['links_' + str(i)]['is_routing_path']  # 当前link是否在导航路径上
         lan_line_split_merge_list = link_list_hdmap['links_' + str(i)]['split_merge_list']  # 分流汇流状态
+        if not lan_line_split_merge_list == 0:
+            statics_comple_value = statics_comple_value + 0.1
         lan_line_is_in_tunnel = link_list_hdmap['links_' + str(i)]['is_in_tunnel']  # link是否为隧道
+        if lan_line_is_in_tunnel == 1:
+            statics_comple_value = statics_comple_value + 0.1
         lan_line_is_in_toll_booth = link_list_hdmap['links_' + str(i)]['is_in_toll_booth']  # link是否为收费站
+        if lan_line_is_in_toll_booth == 1:
+            statics_comple_value = statics_comple_value + 0.1
         lan_line_is_in_certified_road = link_list_hdmap['links_' + str(i)][
             'is_in_certified_road']  # link是否为检查站
+        if lan_line_is_in_certified_road == 1:
+            statics_comple_value = statics_comple_value + 0.1
         lan_line_is_in_odd = link_list_hdmap['links_' + str(i)]['is_in_odd']  # link是否在ODD（运行设计域）范围内
-
+    return statics_comple_value
 
 def Image_Data(imagedata_image, img_filename=''):
     imagedata_image = ast.literal_eval(imagedata_image)
@@ -386,7 +437,7 @@ def Image_Data(imagedata_image, img_filename=''):
 
 
 # 可行驶区域
-def Free_Space_Desc(first0, BacauseOfThereIsImage):
+def Draw_Free_Space_Desc(first0, BacauseOfThereIsImage, is_fig =1):
     plt.xlim(-40, 40)
     # 设置y轴的刻度范围
     plt.ylim(-40, 40)
@@ -404,29 +455,36 @@ def Free_Space_Desc(first0, BacauseOfThereIsImage):
             position_lateral_distance = freespace_fc_unit['position_lateral_distance']
             if point_type == 0:  # 忽略：0
                 logging.debug('忽略')
-                plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1, colorstr='dimgray')
+                if is_fig == 1:
+                    plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1, colorstr='dimgray')
             elif point_type == 1:  # 汽车 ：1
                 logging.debug('汽车')
-                plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1, colorstr='blue')
+                if is_fig == 1:
+                    plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1, colorstr='blue')
             elif point_type == 2:  # 路沿：2
                 logging.debug('路边')
-                plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
+                if is_fig == 1:
+                    plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
                             colorstr='brown')
             elif point_type == 3:  # 行人 ：3
                 logging.debug('行人')
-                plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
+                if is_fig == 1:
+                    plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
                             colorstr='red')
             elif point_type == 4:  # 锥形桶 ：4
                 logging.debug('锥形桶')
-                plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
+                if is_fig == 1:
+                    plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
                             colorstr='coral')
             elif point_type == 5:  # 静态目标：5
                 logging.debug('静态目标')
-                plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
+                if is_fig == 1:
+                    plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
                             colorstr='darkcyan')
             elif point_type == 6:  # 未知：6
                 logging.debug('未知')
-                plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
+                if is_fig == 1:
+                    plot_circle((position_longitudinal_distance, position_longitudinal_distance), r=1,
                             colorstr='aliceblue')
     except:
         pass
@@ -449,8 +507,17 @@ class risk:  # 结构体
         self.risk_value = 0  # 风险值
 
 
-def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,longitude_of_location):
+def Draw_Dection_POI(is_fig,object_detection_list, local_riskmap,latitude_of_location,longitude_of_location,local_complex):
     riskMapIndex = 0
+    statics_object_classification_class = [0,0,0,0,0,0,0,0,0,0,0,0,0]
+    statics_dynamic_classification_class = [0,0,0,0,0,0,0,0,0,0,0,0,0]
+
+    statics_theta = 0 #静态复杂度系数（信息熵）
+    local_risk_value_list = []
+
+    # ['未知目标', '汽车', '卡车', '摩托车', '行人', '自行车', '动物',
+    #                                    '巴士', '其他', '购物车',
+    #                                    '柱子', '锥桶', '已被锁上的车位锁', '未被锁上的车位锁 ']
     for i in range(0, object_detection_list.__len__()):
         local_risk_value = 0
         # 如果目标目标跟踪ID不为空
@@ -465,6 +532,7 @@ def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,l
         # 获取目标类别
         objs_classification = object_detection_list['objs_' + str(i)]['classification']
         # 获取目标纵向和横向距离
+
         objs_longitudinal = object_detection_list['objs_' + str(i)]['longitudinal_distance']
         objs_lateral = object_detection_list['objs_' + str(i)]['lateral_distance']
         # objs_lateral=ast.literal_eval(objs_lateral)
@@ -493,7 +561,7 @@ def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,l
         class_type_score = 0
         status_score = 0
         cutin_status_score = 0
-
+        complex_class_type_score=0
         if longitudinal <30 and lateral <30:
             distance_weight=1.5
         elif longitudinal <100 and lateral <100:
@@ -514,69 +582,7 @@ def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,l
         logging.debug(
             'objs_classification:track_id_txt,(objs_longitudinal,objs_lateral),objs_length,objs_width,heading_angle')
         logging.debug('目标是', txt)
-        # if abs(objs_longitudinal) <= 10:
-        # object_classification_class = ['未知目标', '汽车', '卡车', '摩托车', '行人', '自行车', '动物',
-        #                                '巴士', '其他', '购物车',
-        #                                '柱子', '锥桶', '已被锁上的车位锁', '未被锁上的车位锁 ']
 
-        if objs_classification == 0:
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='black')
-            class_type_score = 2
-            logging.debug("unknow")
-        elif objs_classification == 1:
-            Draw_Rectangle_With_angle(objs_lateral, objs_longitudinal, objs_width, objs_length,
-                                      heading_angle, 'yellow', 'car')
-            class_type_score = 5
-            logging.debug("汽车")
-        elif objs_classification == 2:
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='orange', labelstr='truck')
-            class_type_score = 5
-            logging.debug("卡车")
-        elif objs_classification == 3:
-            logging.debug("摩托车")
-            class_type_score = 5
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='palegreen', labelstr='motocycle')
-        elif objs_classification == 4:
-            logging.debug("行人")
-            class_type_score = 8
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='red', labelstr='pedestrian')
-        elif objs_classification == 5:
-            logging.debug("自行车")
-            class_type_score = 5
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='purple', labelstr='bicycle')
-        elif objs_classification == 6:
-            logging.debug("动物")
-            class_type_score = 5
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkgreen', labelstr='animal')
-        elif objs_classification == 7:
-            logging.debug("巴士")
-            class_type_score = 5
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='green', labelstr='bus')
-        elif objs_classification == 8:
-            logging.debug("其他")
-            class_type_score = 5
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='gray', labelstr='others')
-        elif objs_classification == 9:
-            logging.debug("购物车")
-            class_type_score = 5
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='cyan', labelstr='Shopping Cart')
-        elif objs_classification == 10:
-            logging.debug("柱子")
-            class_type_score = 4
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='crimson', labelstr='pillar')
-        elif objs_classification == 11:
-            class_type_score = 3
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='blanchedalmond', labelstr='cone')
-            logging.debug("锥桶")
-        elif objs_classification == 12:
-            class_type_score = 2
-            logging.debug("已被锁上的车位锁")
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkslategray',
-                        labelstr='Locked parking space')
-        else:
-            logging.debug("未被锁上的车位锁")
-            plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkslategray',
-                        labelstr='unLocked parking space')
         cut_status = object_detection_list['objs_' + str(i)]['cut_status']  # Cut-in状态
         status = object_detection_list['objs_' + str(i)]['status']  # 目标运动状态
         if status == 0 or status==2:
@@ -594,12 +600,129 @@ def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,l
             cutin_status_score = 0.8
         elif cut_status == 1: #正常:1
             cutin_status_score = 1.2
+
         longitudinal_relative_velocity = object_detection_list['objs_' + str(i)][
             'longitudinal_relative_velocity']  # 纵向相对速度
         lateral_relative_velocity = object_detection_list['objs_' + str(i)][
             'lateral_relative_velocity']  # 横向相对速度
         obj_refer_points = object_detection_list['objs_' + str(i)][
             'obj_refer_points']  # 目标测量参考点：下一级为纵向距离、横向距离
+
+        # if abs(objs_longitudinal) <= 10:
+        # object_classification_class = ['未知目标', '汽车', '卡车', '摩托车', '行人', '自行车', '动物',
+        #                                '巴士', '其他', '购物车',
+        #                                '柱子', '锥桶', '已被锁上的车位锁', '未被锁上的车位锁 ']
+
+        if objs_classification == 0:
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='black')
+            class_type_score = 2
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[0]= statics_object_classification_class[0]+1
+            else:
+                statics_dynamic_classification_class[0] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            complex_class_type_score=1
+            logging.debug("unknow")
+        elif objs_classification == 1:
+            if is_fig==1:
+                Draw_Rectangle_With_angle(objs_lateral, objs_longitudinal, objs_width, objs_length,
+                                      heading_angle, 'yellow', 'car')
+            class_type_score = 5
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[1] = statics_object_classification_class[1] + 1
+            else:
+                statics_dynamic_classification_class[1] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            logging.debug("汽车")
+        elif objs_classification == 2:
+            if is_fig == 1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='orange', labelstr='truck')
+            class_type_score = 5
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[2] = statics_object_classification_class[2] + 1
+            else:
+                statics_dynamic_classification_class[2] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            logging.debug("卡车")
+        elif objs_classification == 3:
+            logging.debug("摩托车")
+            class_type_score = 5
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[3] = statics_object_classification_class[3]+ 1
+            else:
+                statics_dynamic_classification_class[3] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='palegreen', labelstr='motocycle')
+        elif objs_classification == 4:
+            logging.debug("行人")
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[4] = statics_object_classification_class[4]+ 1
+            else:
+                statics_dynamic_classification_class[4] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            class_type_score = 8
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='red', labelstr='pedestrian')
+        elif objs_classification == 5:
+            logging.debug("自行车")
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[5] = statics_object_classification_class[5]+ 1
+            else:
+                statics_dynamic_classification_class[5] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            class_type_score = 5
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='purple', labelstr='bicycle')
+        elif objs_classification == 6:
+            logging.debug("动物")
+            class_type_score = 5
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[6] = statics_object_classification_class[6]+ 1
+            else:
+                statics_dynamic_classification_class[6] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkgreen', labelstr='animal')
+        elif objs_classification == 7:
+            logging.debug("巴士")
+            class_type_score = 5
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[7] = statics_object_classification_class[7]+ 1
+            else:
+                statics_dynamic_classification_class[7] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='green', labelstr='bus')
+        elif objs_classification == 8:
+            logging.debug("其他")
+            class_type_score = 5
+            if status == 1 or status == 3 or status == 4 :
+                statics_object_classification_class[8] = statics_object_classification_class[8]+ 1
+            else:
+                statics_dynamic_classification_class[8] = math.cos(heading_angle)*(longitudinal_relative_velocity*0.5+lateral_relative_velocity*0.5)/math.sqrt(objs_longitudinal**2+objs_lateral**2)
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='gray', labelstr='others')
+        elif objs_classification == 9:
+            logging.debug("购物车")
+            class_type_score = 5
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='cyan', labelstr='Shopping Cart')
+        elif objs_classification == 10:
+            logging.debug("柱子")
+            class_type_score = 4
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='crimson', labelstr='pillar')
+        elif objs_classification == 11:
+            class_type_score = 3
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='blanchedalmond', labelstr='cone')
+            logging.debug("锥桶")
+        elif objs_classification == 12:
+            class_type_score = 2
+            logging.debug("已被锁上的车位锁")
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkslategray',
+                        labelstr='Locked parking space')
+        else:
+            logging.debug("未被锁上的车位锁")
+            if is_fig==1:
+                plot_circle((objs_lateral, objs_longitudinal), r=1, colorstr='darkslategray',
+                        labelstr='unLocked parking space')
+
 
         if longitudinal_relative_velocity > 100 or lateral_relative_velocity >100:
             distance_weight = distance_weight * 1.8
@@ -611,7 +734,8 @@ def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,l
         if abs(longitudinal_distance)<5 or abs(lateral_distance)<5:
             distance_weight  = distance_weight*1.5
         local_risk_value = distance_weight * size_weight * class_type_score * status_score *cutin_status_score
-        print(str(local_risk_value)+'='+str(distance_weight)+'*'+str(size_weight)+'*'+str(class_type_score)+'*'+str(status_score)+'*'+str(cutin_status_score))
+        local_risk_value_list.append(local_risk_value)
+        logging.info(str(local_risk_value)+'='+str(distance_weight)+'*'+str(size_weight)+'*'+str(class_type_score)+'*'+str(status_score)+'*'+str(cutin_status_score))
         local_riskmap = add_to_risk_map(local_risk_value, objs_lateral, objs_longitudinal, local_riskmap,latitude_of_location,longitude_of_location)
 
         # plt.Rectangle(
@@ -619,8 +743,9 @@ def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,l
         #     linewidth=1)
         # plot_circle((objs_lateral, objs_longitudinal), r=1)
 
-        ax = plt.gca()  # 获得坐标轴的句柄
-        plt.text(lateral + objs_width / 2, longitudinal + objs_length / 2, '%s' %
+        if is_fig == 1:
+            ax = plt.gca()  # 获得坐标轴的句柄
+            plt.text(lateral + objs_width / 2, longitudinal + objs_length / 2, '%s' %
                  object_classification_class[objs_classification], ha='center', va='bottom', fontsize=7,
                  transform=ax.transAxes)
         # ax.add_patch(plt.Rectangle(
@@ -629,7 +754,19 @@ def Draw_Dection_POI(object_detection_list, local_riskmap,latitude_of_location,l
         # ax = fig.add_subplot(111)
         riskMapIndex = riskMapIndex + 1
         already_draw_one = 1
-    return local_riskmap
+    total_statics_object_classification_class_value = 0  # 静态复杂度系数（信息熵）
+    total_dynamic_object_classification_class_value = 0  # 静态复杂度系数（信息熵）
+    total_local_risk_value = 0
+    for i in range(0, local_risk_value_list.__len__()):
+        total_local_risk_value = total_local_risk_value + local_risk_value_list[i]
+    for i in range(0, statics_dynamic_classification_class.__len__()):
+        total_dynamic_object_classification_class_value = total_dynamic_object_classification_class_value + statics_dynamic_classification_class[i]
+    total_dynamic_object_classification_class_value = abs(total_dynamic_object_classification_class_value) *4000
+    for i in range(0, statics_object_classification_class.__len__()):
+        statics_object_classification_class[i] = statics_object_classification_class[i]/object_detection_list.__len__()
+        total_statics_object_classification_class_value = total_statics_object_classification_class_value + statics_object_classification_class[i]
+    total_statics_object_complex = total_local_risk_value * total_statics_object_classification_class_value*10
+    return local_riskmap,total_statics_object_complex,total_dynamic_object_classification_class_value
 
 
 def add_to_risk_map(local_risk_value, objs_lateral, objs_longitudinal, riskMap,latitude_of_location,longitude_of_location):
@@ -696,7 +833,7 @@ def Draw_Rectangle_With_angle(x, y, width, height, angle, colorstr, label):
     plt.plot(xx, yy, "b", color=colorstr, label=label)
 
 
-def Draw_Lane_Line(Lane_line_list):
+def Draw_Lane_Line(is_fig,Lane_line_list):
     for i in range(0, Lane_line_list.__len__()):
         # Lane_line_list['lines_' + str(i)]
         if Lane_line_list['lines_' + str(i)]['curve_parameter_a0'] != 0 or \
@@ -716,33 +853,39 @@ def Draw_Lane_Line(Lane_line_list):
                 y ** 2 + curve_parameter_a1 * y + curve_parameter_a0
 
             if Lane_line_list['lines_' + str(i)]['type'] == 0:  # 实线
-                plt.plot(x, y, linestyle='solid', color='b', linewidth=1.0)
+                if is_fig == 1:
+                    plt.plot(x, y, linestyle='solid', color='b', linewidth=1.0)
                 logging.debug('实线')
             elif Lane_line_list['lines_' + str(i)]['type'] == 1:  # 虚线
-                plt.plot(x, y, linestyle='dotted', color='b', linewidth=1)
+                if is_fig == 1:
+                    plt.plot(x, y, linestyle='dotted', color='b', linewidth=1)
                 logging.debug('虚线')
             elif Lane_line_list['lines_' + str(i)]['type'] == 2:  # 双虚线
-                plt.plot(x, y, color='b',
+                if is_fig == 1:
+                    plt.plot(x, y, color='b',
                          linestyle='dotted', linewidth=1.0)
-                plt.plot(x + 0.1, y + 0.1, color='b',
+                    plt.plot(x + 0.1, y + 0.1, color='b',
                          linestyle='dotted', linewidth=1.0)
                 logging.debug('双虚线')
             elif Lane_line_list['lines_' + str(i)]['type'] == 3:  # 虚实线
-                plt.plot(x, y, color='b',
+                if is_fig == 1:
+                    plt.plot(x, y, color='b',
                          linestyle='dotted', linewidth=1.0)
-                plt.plot(x + 0.1, y + 0.1, color='b',
+                    plt.plot(x + 0.1, y + 0.1, color='b',
                          linestyle='solid', linewidth=1.0)
                 logging.debug('虚实线')
             elif Lane_line_list['lines_' + str(i)]['type'] == 4:  # 实虚线
-                plt.plot(x, y, color='b',
+                if is_fig == 1:
+                    plt.plot(x, y, color='b',
                          linestyle='solid', linewidth=1.0)
-                plt.plot(x + 0.1, y + 0.1, color='b',
+                    plt.plot(x + 0.1, y + 0.1, color='b',
                          linestyle='dotted', linewidth=1.0)
                 logging.debug('实虚线')
             elif Lane_line_list['lines_' + str(i)]['type'] == 5:  # 双实线
-                plt.plot(x, y, color='b',
+                if is_fig == 1:
+                    plt.plot(x, y, color='b',
                          linestyle='solid', linewidth=1.0)
-                plt.plot(x + 0.1, y + 0.1, color='b',
+                    plt.plot(x + 0.1, y + 0.1, color='b',
                          linestyle='solid', linewidth=1.0)
                 logging.debug('双实线')
     return
@@ -811,9 +954,21 @@ def declare_a_global_variable():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # print_hi('PyCharm')
-    # for i in range(-360, 360):
-    #     print('t(', i, '):', heading_angle_Cali(i))
+    opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["ifile=", "wdir=", ])
+    for opt, arg in opts:
+        if opt == '-h':
+            print
+            '8.riskhotmap.py -i <inputfile> -w <working directory>'
+            sys.exit()
+        elif opt in ("-i", "--ifile"):
+            targetfile = arg
+        elif opt in ("-w", "--wdir"):
+            path = arg
+            if not path.endswith('/'):
+                path = path +'/'
+    path = 'F:/DataContest/data/0805 (有图数据)/'
+    targetfile = '1659666219.43_1659666263.64.csv'
+
     declare_a_global_variable()
     config = {
         "font.family": 'serif',  # sans-serif/serif/cursive/fantasy/monospace
@@ -836,11 +991,11 @@ if __name__ == '__main__':
     # plt.rcParams['figure.figsize'] = (8.0, 6.0)
     # plt.rcParams['figure.dpi'] = 50 #分辨率
     # plt.rcParams['savefig.dpi'] = 150  # 图片像素
-    isSaveGenerateImage = 1
-    isRecordInf = 0
-    NoImageFileFormat = 0
+    isSaveGenerateImage = 0
+    isRecordInf = 1
+    NoImageFileFormat = 1 # 没有图片
     is_generated_video = 0
-    prepare_data(isSaveGenerateImage, isRecordInf, NoImageFileFormat, is_generated_video)
+    prepare_data(path,targetfile,isSaveGenerateImage, isRecordInf, NoImageFileFormat, is_generated_video)
     # plt.legend()
 
     plt.show()

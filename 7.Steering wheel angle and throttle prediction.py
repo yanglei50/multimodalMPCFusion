@@ -198,8 +198,8 @@ def generator_data(img, degree, throttle, batch_size, shape, data_dir='data/', d
 
 
 if __name__ == "__main__":
-    data_path = 'data/'
-    with open(data_path + 'driving_log.csv', 'r') as csvfile:
+    data_path = 'D:/DataContest/data/image2/mp/'
+    with open(data_path + 'carinfo.csv', 'r') as csvfile:
         file_reader = csv.reader(csvfile, delimiter=',')
         log = []
         for row in file_reader:
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     log = log[0:, :]
 
     # 判断图像文件数量是否等于csv日志文件中记录的数量
-    ls_imgs = glob.glob(data_path + 'image2/1659666219.43_1659666263.64/scence19*.png')
+    ls_imgs = glob.glob(data_path + 'scence19*.png')
     assert len(ls_imgs) == len(log) * 3, 'number of images does not match'
 
     # 使用20%的数据作为测试数据
