@@ -251,7 +251,7 @@ if __name__ == '__main__':
     for opt, arg in opts:
         if opt == '-h':
             print
-            '8.riskhotmap.py -i <inputfile> -w <working directory>'
+            '3.HighwaySpeedControl.py -i <inputfile> -w <working directory>'
             sys.exit()
         elif opt in ("-i", "--ifile"):
             targetfile = arg
