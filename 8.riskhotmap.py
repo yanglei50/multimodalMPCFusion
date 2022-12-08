@@ -75,7 +75,8 @@ def prepare_data(path,targetfile,is_save_generate_image=1, is_record_inf=1, no_i
         rec_header = ['index', 'forward_speed', 'location_x', 'location_y', 'rotation_yaw','complex_value']
         shotname, extension = os.path.splitext(extension)
         if is_record_inf == 1:
-            log_file = open(storepath + 'carinfo.csv', 'a+', encoding='utf-8', newline='')
+            log_file = open(storepath + 'carinfo.csv', 'w+', encoding='utf-8', newline='')
+            print('log:'+storepath + 'carinfo.csv')
             log_csv_writer = csv.writer(log_file)
             log_csv_writer.writerow(rec_header)
         with open(file) as f:
@@ -242,6 +243,7 @@ def prepare_data(path,targetfile,is_save_generate_image=1, is_record_inf=1, no_i
                 risk_map,statics_complex_value,dynamic_complex_value = Draw_Dection_POI(is_fig,object_detection_list,risk_map,latitude_of_location,longitude_of_location,risk_map)
                 static_complex_map.append(statics_complex_value+statics_comple_value2)
                 dynamic_complex_map.append(dynamic_complex_value)
+
                 # 把所有车道线搞出来
                 Draw_Lane_Line(is_fig,Lane_line_list)
 
@@ -292,10 +294,11 @@ def prepare_data(path,targetfile,is_save_generate_image=1, is_record_inf=1, no_i
                 # plt.show()
                 # 保存到文件中去
                 if is_record_inf == 1:
+                    risk_value=get_value_from_risk_map(risk_map, latitude_of_location, longitude_of_location)
                     # rec_header = ['index','forward_speed','location_x', 'location_y', 'rotation_yaw','lat_accel_stp','long_accel_stp']
-                    log_csv_writer.writerow([str(already_draw_one), esp_vehicle_speed_stp_motion, vehicle_pos_lng_hdmap,
-                                             vehicle_pos_lat_hdmap, esp_lat_accel_stp_motion,
-                                             esp_long_accel_stp_motion,statics_complex_value+statics_comple_value2+dynamic_complex_value])
+                    log_csv_writer.writerow([str(already_draw_one), esp_vehicle_speed_stp_motion, latitude_of_location,longitude_of_location,
+                                             esp_lat_accel_stp_motion,
+                                             esp_long_accel_stp_motion,risk_value,statics_complex_value+statics_comple_value2+dynamic_complex_value])
                 if is_save_generate_image == 1 and is_fig == 1:
                     print("path+'/image2/'+filename):" + path + '/image2/' + filename + '/complex' +
                           str(a) + '.jpg')
@@ -327,7 +330,7 @@ def prepare_data(path,targetfile,is_save_generate_image=1, is_record_inf=1, no_i
     total_complex = 0
     for i in range(0, global_complex_map.__len__()):
         total_complex = total_complex+global_complex_map[i]
-    print('\n total_complex='+str(total_complex)+'')
+    print('\n total_complex='+str(total_complex)+',average_risk='+str(risk_value))
     return
 
 
@@ -778,7 +781,7 @@ def add_to_risk_map(local_risk_value, objs_lateral, objs_longitudinal, riskMap,l
     else:
         flag_There_is = 0
         for ii in range(len(riskMap)):
-            if riskMap[ii].longitudinal == objs_lateral.__round__(6) and riskMap[
+            if riskMap[ii].lateral == objs_lateral.__round__(6) and riskMap[
                 ii].longitudinal == objs_longitudinal.__round__(6):
                 flag_There_is = 1
                 riskMap[ii].risk_value = local_risk_value + riskMap[ii].risk_value.__round__(2)
@@ -790,6 +793,12 @@ def add_to_risk_map(local_risk_value, objs_lateral, objs_longitudinal, riskMap,l
             riskMap[riskMap.__len__()-1].risk_value = local_risk_value.__round__(2)
     return riskMap
 
+def get_value_from_risk_map(riskMap,latitude_of_location,longitude_of_location):
+    local_risk_value = 0
+    for ii in range(len(riskMap)):
+            local_risk_value = local_risk_value + riskMap[ii].risk_value
+    local_risk_value = local_risk_value/len(riskMap)
+    return local_risk_value
 
 def Draw_Rectangle_With_angle(x, y, width, height, angle, colorstr, label):
     # x,y 矩形中心点坐标
@@ -967,7 +976,7 @@ if __name__ == '__main__':
             if not path.endswith('/'):
                 path = path +'/'
     path = 'F:/DataContest/data/0805 (有图数据)/'
-    targetfile = '1659666219.43_1659666263.64.csv'
+    targetfile = '1659666617.49_1659666654.17.csv'
 
     declare_a_global_variable()
     config = {

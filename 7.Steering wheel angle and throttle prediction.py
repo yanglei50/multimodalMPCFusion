@@ -1,5 +1,8 @@
 # coding=utf-8
 #https://blog.csdn.net/qq_24819773/article/details/90511453?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522167006844516782414934230%2522%252C%2522scm%2522%253A%252220140713.130102334.pc%255Fall.%2522%257D&request_id=167006844516782414934230&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~all~first_rank_ecpm_v1~rank_v31_ecpm-20-90511453-null-null.142^v67^control,201^v3^control_2,213^v2^t3_esquery_v3&utm_term=driving_log.csv&spm=1018.2226.3001.4187
+import getopt
+import sys
+
 import numpy as np
 from tensorflow.keras.optimizers import SGD, Adam
 from keras.layers.core import Dense, Dropout, Activation
@@ -198,29 +201,53 @@ def generator_data(img, degree, throttle, batch_size, shape, data_dir='data/', d
 
 
 if __name__ == "__main__":
-    data_path = 'D:/DataContest/data/image2/mp/'
-    with open(data_path + 'carinfo.csv', 'r') as csvfile:
+    opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["ifile=", "wdir=", ])
+    for opt, arg in opts:
+        if opt == '-h':
+            print
+            '8.riskhotmap.py -i <inputfile> -w <working directory>'
+            sys.exit()
+        elif opt in ("-i", "--ifile"):
+            targetfile = arg
+        elif opt in ("-w", "--wdir"):
+            path = arg
+            if not path.endswith('/'):
+                path = path +'/'
+    path = 'D:/DataContest/data/image2/mp/'
+    targetfile = '1659666219.43_1659666263.64.csv'
+
+    # data_path = 'D:/DataContest/data/image2/mp/'
+    with open(path + 'carinfo.cvs', 'r') as csvfile:
         file_reader = csv.reader(csvfile, delimiter=',')
         log = []
         for row in file_reader:
             log.append(row)
     log = np.array(log)
     # 去掉文件第一行
-    log = log[0:, :]
+    log = log[1:]
 
     # 判断图像文件数量是否等于csv日志文件中记录的数量
-    ls_imgs = glob.glob(data_path + 'scence19*.png')
-    assert len(ls_imgs) == len(log) * 3, 'number of images does not match'
-
+    ls_imgs = glob.glob(path + 'scence*.png')
+    # assert len(ls_imgs) == len(log) * 3, 'number of images does not match'
+    avalid_data_length=min(len(ls_imgs),len(log) )
     # 使用20%的数据作为测试数据
     validation_ratio = 0.2
     shape = (128, 128, 3)
     batch_size = 32
     nb_epoch = 200
-
-    x_ = log[:, 0]
-    y_ = log[:, 3].astype(float)
-    z_ = log[:, 4].astype(float)
+    x_=[]
+    y_=[]
+    z_=[]
+    for i in range(0,avalid_data_length):
+        x_.append(log[i][1])
+        y_.append(log[i][2])
+        z_.append(log[i][3])
+    # x_ = log[:, 0]
+    x_ = np.array(x_)
+    y_ = np.array(y_)
+    z_ = np.array(z_)
+    # y_ = log[:, 3].astype(float)
+    # z_ = log[:, 4].astype(float)
     print(x_.shape)
     print(y_.shape)
     print(z_.shape)
@@ -255,8 +282,8 @@ if __name__ == "__main__":
     with open('./trainHistoryDict_self.p', 'wb') as file_pi:
         pickle.dump(history.history, file_pi)
 
-    # pyplot.plot(history.history['loss'])
-    # pyplot.plot(history.history['val_loss'])
+    pyplot.plot(history.history['loss'])
+    pyplot.plot(history.history['val_loss'])
     # pyplot.title('model train vs validation loss')
     # pyplot.ylabel('loss')
     # pyplot.xlabel('epoch')
